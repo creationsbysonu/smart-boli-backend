@@ -1,0 +1,8 @@
+fastapi==0.111.0
+uvicorn==0.30.0
+python-multipart==0.0.6
+numpy==1.26.4
+librosa==0.10.2
+soundfile==0.12.1
+joblib==1.4.0
+scikit-learn==1.7.0
