@@ -25,7 +25,11 @@ app = FastAPI(title="Smart Boli - Nepali Stutter Detection Backend")
 # Security: Trusted host middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"],
+    allowed_hosts=[
+        "smart-boli-backend.onrender.com",
+        "localhost",
+        "127.0.0.1",
+    ],
 )
 
 # Security: Rate limiting
