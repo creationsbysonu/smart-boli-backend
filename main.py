@@ -22,7 +22,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = None
+_model = None
+
+
+def _get_model():
+    global _model
+    if _model is None:
+        if not os.path.exists(MODEL_PATH):
+            raise RuntimeError(f"Model file not found at {MODEL_PATH}")
+        _model = joblib.load(MODEL_PATH)
+    return _model
 
 
 class PredictResponse(BaseModel):
@@ -31,14 +40,6 @@ class PredictResponse(BaseModel):
     fluent: bool
     confidence: float | None = None
     chunk_seconds: float
-
-
-@app.on_event("startup")
-def load_model():
-    global model
-    if not os.path.exists(MODEL_PATH):
-        raise RuntimeError(f"Model file not found at {MODEL_PATH}")
-    model = joblib.load(MODEL_PATH)
 
 
 def extract_features(audio: np.ndarray, sr: int) -> np.ndarray:
@@ -53,13 +54,24 @@ def extract_features(audio: np.ndarray, sr: int) -> np.ndarray:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": model is not None}
+    return {"status": "ok", "model_loaded": _model is not None}
+
+
+@app.get("/warmup")
+def warmup():
+    try:
+        _get_model()
+        return {"status": "warmed", "model_loaded": True}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 
 @app.post("/predict", response_model=PredictResponse)
 async def predict(file: UploadFile = File(...)):
-    if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    try:
+        model = _get_model()
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
     contents = await file.read()
     try:
@@ -83,7 +95,7 @@ async def predict(file: UploadFile = File(...)):
 
     fluent = pred == 0
     label = "FLUENT" if fluent else "STUTTERED"
-    color = "#10b981" if fluent else "#ef4444"  # green / red
+    color = "#10b981" if fluent else "#ef4444"
 
     return PredictResponse(
         label=label,
